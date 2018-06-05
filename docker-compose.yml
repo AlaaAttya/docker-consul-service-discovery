@@ -1,0 +1,58 @@
+version: '2.1'
+services:
+  app1: 
+    container_name: app1
+    image: nginx:1.13.12-alpine
+    ports:
+      - "8081:80"
+      - "8044:443"
+    volumes:
+      - ./nginx/www-1:/usr/share/nginx/html/
+    depends_on:
+      - consul-server1
+    links:
+      - consul-server1
+  app2: 
+    container_name: app2
+    image: nginx:1.13.12-alpine
+    ports:
+      - "8082:80"
+      - "8045:443"
+    volumes:
+      - ./nginx/www-2:/usr/share/nginx/html/
+  
+
+  consul-server1:
+    container_name: consul-server1
+    image: consul:latest
+    ports:
+      - 9600:8600
+      - 9500:8500
+      - 9400:8400
+      - 53:53/udp
+    hostname: ${DOCKER_MACHINE_HOST_IP}  
+    command: 'agent -server -bootstrap-expect 3 -ui -client 0.0.0.0 -log-level=debug'
+  consul-server2:
+    container_name: consul-server2
+    image: consul:latest
+    command: 'agent -server -retry-join consul-server1 -client 0.0.0.0 -log-level=debug'
+    depends_on:
+      - consul-server1
+  consul-server3:
+    container_name: consul-server3
+    image: consul:latest
+    command: 'agent -server -retry-join consul-server1 -client 0.0.0.0 -log-level=debug'
+    depends_on:
+      - consul-server1    
+  
+
+  consul-registrator:
+    container_name: consul-registrator
+    image: gliderlabs/registrator:master
+    volumes:
+      - /var/run/docker.sock:/tmp/docker.sock
+    command: "-ip ${DOCKER_MACHINE_HOST_IP} consul://${DOCKER_MACHINE_HOST_IP}:9500"
+    hostname: ${DOCKER_MACHINE_HOST_IP}
+    depends_on:
+      - consul-server1
+             
